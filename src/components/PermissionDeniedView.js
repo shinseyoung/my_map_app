@@ -1,6 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import * as Linking from 'expo-linking';
+import { StyleSheet, View, Text, TouchableOpacity, Linking } from 'react-native';
 import { COLORS } from '../constants/theme';
 
 export default function PermissionDeniedView() {
