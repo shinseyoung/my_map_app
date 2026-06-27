@@ -1,42 +1,46 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
+import { StyleSheet, View, Dimensions, Image } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import useAppStore from '../stores/useAppStore';
 import { COLORS } from '../constants/theme';
 import EmptyMapView from './EmptyMapView';
 import PermissionDeniedView from './PermissionDeniedView';
+import { getRegionDeltaForRadius, getMinZoomLevelForRadius } from '../utils/geoUtils';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 
-export default function MainMap({ onPinPress, onRequestFilter }) {
+export default function MainMap({ onPinPress }) {
   const mapRef = useRef(null);
   const {
     location,
-    filterRadius,
+    filter,
     activePins,
     hasLocationPermission,
     requestPermissions,
   } = useAppStore();
 
   useEffect(() => {
-    if (!hasLocationPermission) {
+    if (hasLocationPermission === null) {
       requestPermissions();
     }
   }, [hasLocationPermission, requestPermissions]);
 
   useEffect(() => {
+    // 필터 반경이 바뀌면 그 반경이 곧 '최대 축소 한계선'이 되도록 뷰포트를 리셋함 (뷰포트 잠금 로직)
     if (mapRef.current && location) {
-      const latitudeDelta = (filterRadius / 111.32) * 2.2;
-      const longitudeDelta = latitudeDelta * ASPECT_RATIO;
-      mapRef.current.animateToRegion({
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta,
-        longitudeDelta,
-      }, 1000);
+      const { latitudeDelta, longitudeDelta } = getRegionDeltaForRadius(filter.radius, ASPECT_RATIO);
+      mapRef.current.animateToRegion(
+        {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta,
+          longitudeDelta,
+        },
+        1000
+      );
     }
-  }, [location, filterRadius]);
+  }, [location, filter.radius]);
 
   if (hasLocationPermission === false) {
     return <PermissionDeniedView />;
@@ -46,7 +50,8 @@ export default function MainMap({ onPinPress, onRequestFilter }) {
     return <View style={styles.container} />;
   }
 
-  const minZoomLevel = Math.max(0, 15 - Math.log2(filterRadius));
+  const { latitudeDelta, longitudeDelta } = getRegionDeltaForRadius(filter.radius, ASPECT_RATIO);
+  const minZoomLevel = getMinZoomLevelForRadius(filter.radius);
 
   return (
     <View style={styles.container}>
@@ -59,8 +64,8 @@ export default function MainMap({ onPinPress, onRequestFilter }) {
         initialRegion={{
           latitude: location.latitude,
           longitude: location.longitude,
-          latitudeDelta: (filterRadius / 111.32) * 2.2,
-          longitudeDelta: ((filterRadius / 111.32) * 2.2) * ASPECT_RATIO,
+          latitudeDelta,
+          longitudeDelta,
         }}
         showsUserLocation={true}
         showsMyLocationButton={false}
@@ -68,9 +73,17 @@ export default function MainMap({ onPinPress, onRequestFilter }) {
         {activePins && activePins.length > 0 && activePins.map((pin) => (
           <Marker
             key={pin.id}
-            coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
-            onPress={() => onPinPress(pin)}
-          />
+            coordinate={{ latitude: pin.lat, longitude: pin.lon }}
+            onPress={() => onPinPress && onPinPress(pin)}
+          >
+            <View style={styles.pinWrapper}>
+              {pin.main_image_url ? (
+                <Image source={{ uri: pin.main_image_url }} style={styles.pinImage} />
+              ) : (
+                <View style={[styles.pinImage, styles.pinImagePlaceholder]} />
+              )}
+            </View>
+          </Marker>
         ))}
       </MapView>
       {(!activePins || activePins.length === 0) && <EmptyMapView />}
@@ -85,6 +98,22 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  pinWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  pinImage: {
+    width: '100%',
+    height: '100%',
+  },
+  pinImagePlaceholder: {
+    backgroundColor: '#333',
   },
 });
 

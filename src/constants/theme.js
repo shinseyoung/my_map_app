@@ -7,6 +7,9 @@ export const theme = {
     textSecondary: '#A0A0A0',
     border: '#333333',
     accent: '#FF453A',
+    white: '#FFFFFF',
+    text: '#FFFFFF',
+    error: '#FF453A',
   },
   layout: {
     modal: {
@@ -17,5 +20,8 @@ export const theme = {
     borderRadius: 12,
   },
 };
+
+export const colors = theme.colors;
+export const COLORS = theme.colors;
 
 export default theme;

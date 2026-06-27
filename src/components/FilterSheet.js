@@ -1,32 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Modal, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, Modal, TouchableOpacity, Dimensions } from 'react-native';
+import Slider from '@react-native-community/slider';
 import useAppStore from '../stores/useAppStore';
 import { COLORS } from '../constants/theme';
 
 const { height } = Dimensions.get('window');
 
 export default function FilterSheet({ visible, onClose }) {
-  const { filterRadius, filterGender, filterAgeGroup, updateFilters } = useAppStore();
-  
-  const [localRadius, setLocalRadius] = useState(filterRadius);
-  const [localGender, setLocalGender] = useState(filterGender);
-  const [localAgeGroup, setLocalAgeGroup] = useState(filterAgeGroup);
+  const { filter, updateFilter, resetFilter } = useAppStore();
+
+  const [localRadius, setLocalRadius] = useState(filter.radius);
+  const [localGender, setLocalGender] = useState(filter.gender);
+  const [localMaxAge, setLocalMaxAge] = useState(filter.maxAge);
 
   useEffect(() => {
     if (visible) {
-      setLocalRadius(filterRadius);
-      setLocalGender(filterGender);
-      setLocalAgeGroup(filterAgeGroup);
+      setLocalRadius(filter.radius);
+      setLocalGender(filter.gender);
+      setLocalMaxAge(filter.maxAge);
     }
-  }, [visible, filterRadius, filterGender, filterAgeGroup]);
+  }, [visible, filter]);
 
   const handleApply = () => {
-    updateFilters({
-      filterRadius: localRadius,
-      filterGender: localGender,
-      filterAgeGroup: localAgeGroup,
+    updateFilter({
+      radius: localRadius,
+      gender: localGender,
+      maxAge: localMaxAge,
     });
-    onClose();
+    onClose && onClose();
+  };
+
+  const handleReset = () => {
+    resetFilter();
+    setLocalRadius(5);
+    setLocalGender('all');
+    setLocalMaxAge(60);
   };
 
   const genders = [
@@ -34,9 +42,6 @@ export default function FilterSheet({ visible, onClose }) {
     { label: '남성', value: 'male' },
     { label: '여성', value: 'female' },
   ];
-
-  const radii = [1, 5, 10, 50];
-  const ages = ['18-24', '25-30', '31-40', '41-60', '60+'];
 
   return (
     <Modal
@@ -48,9 +53,12 @@ export default function FilterSheet({ visible, onClose }) {
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.backgroundTouchable} onPress={onClose} activeOpacity={1} />
         <View style={styles.sheetContainer}>
-          <View style={styles.handle} />
-          
-          <Text style={styles.title}>탐색 레이더 필터</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>필터</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.closeIcon}>✕</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>성별</Text>
@@ -70,42 +78,53 @@ export default function FilterSheet({ visible, onClose }) {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>반경 (km) : {localRadius}km</Text>
-            <View style={styles.row}>
-              {radii.map((r) => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.chip, localRadius === r && styles.chipActive]}
-                  onPress={() => setLocalRadius(r)}
-                >
-                  <Text style={[styles.chipText, localRadius === r && styles.chipTextActive]}>
-                    {r}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={styles.sectionTitle}>반경</Text>
+            <Text style={styles.valueText}>{localRadius}km</Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={1}
+              maximumValue={50}
+              step={1}
+              value={localRadius}
+              onValueChange={setLocalRadius}
+              minimumTrackTintColor={COLORS.primary}
+              maximumTrackTintColor="#444"
+              thumbTintColor={COLORS.primary}
+            />
+            <View style={styles.rangeLabels}>
+              <Text style={styles.rangeLabelText}>1km</Text>
+              <Text style={styles.rangeLabelText}>50km</Text>
             </View>
           </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>나이</Text>
-            <View style={styles.rowWrap}>
-              {ages.map((a) => (
-                <TouchableOpacity
-                  key={a}
-                  style={[styles.chip, localAgeGroup === a && styles.chipActive, styles.chipMargin]}
-                  onPress={() => setLocalAgeGroup(a)}
-                >
-                  <Text style={[styles.chipText, localAgeGroup === a && styles.chipTextActive]}>
-                    {a}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={styles.valueText}>{localMaxAge}세</Text>
+            <Slider
+              style={styles.slider}
+              minimumValue={18}
+              maximumValue={60}
+              step={1}
+              value={localMaxAge}
+              onValueChange={setLocalMaxAge}
+              minimumTrackTintColor={COLORS.primary}
+              maximumTrackTintColor="#444"
+              thumbTintColor={COLORS.primary}
+            />
+            <View style={styles.rangeLabels}>
+              <Text style={styles.rangeLabelText}>18</Text>
+              <Text style={styles.rangeLabelText}>60+</Text>
             </View>
           </View>
 
-          <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
-            <Text style={styles.applyButtonText}>적용하기</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+              <Text style={styles.resetButtonText}>초기화</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
+              <Text style={styles.applyButtonText}>적용하기</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -127,22 +146,22 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    minHeight: height * 0.5,
+    minHeight: height * 0.55,
   },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#555',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 20,
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
   },
   title: {
     color: COLORS.text,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 24,
-    textAlign: 'center',
+  },
+  closeIcon: {
+    color: COLORS.text,
+    fontSize: 18,
   },
   section: {
     marginBottom: 24,
@@ -150,15 +169,29 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#CCC',
     fontSize: 14,
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  valueText: {
+    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  slider: {
+    width: '100%',
+    height: 36,
+  },
+  rangeLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  rangeLabelText: {
+    color: '#888',
+    fontSize: 12,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  rowWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
   },
   chip: {
     paddingVertical: 10,
@@ -168,10 +201,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 4,
     alignItems: 'center',
-  },
-  chipMargin: {
-    marginVertical: 4,
-    flex: 0,
   },
   chipActive: {
     backgroundColor: COLORS.primary,
@@ -184,12 +213,29 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: 'bold',
   },
+  buttonRow: {
+    flexDirection: 'row',
+    marginTop: 10,
+    gap: 10,
+  },
+  resetButton: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#2A2A2A',
+  },
+  resetButtonText: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   applyButton: {
+    flex: 2,
     backgroundColor: COLORS.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 10,
   },
   applyButtonText: {
     color: '#000',
